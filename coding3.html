@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Module Selector - Flow Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    backgroundImage: {
+                        'dot-pattern': 'radial-gradient(#cbd5e1 1.5px, #f8fafc 1.5px)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1.5px, #f8fafc 1.5px);
+            background-size: 24px 24px;
+        }
+        
+        .flow-container {
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+        }
+        .flow-container::-webkit-scrollbar { height: 8px; }
+        .flow-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.5); border-radius: 4px; }
+        .flow-container::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+
+        .module-card {
+            transition: all 0.2s ease-in-out;
+            position: relative;
+        }
+        
+        .module-card::before, .module-card::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 6px;
+            height: 6px;
+            background: #cbd5e1;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .module-card::before { left: -3px; }
+        .module-card::after { right: -3px; }
+        .module-card:hover::before, .module-card:hover::after { opacity: 1; }
+
+        .module-card:hover:not(.status-unavailable):not(.is-clashing) {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .status-core {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            border-width: 2px;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+        }
+        
+        .status-optional {
+            background-color: #ffffff;
+            border-color: #cbd5e1;
+            border-width: 1px;
+        }
+        
+        .status-unavailable {
+            background-color: #fef2f2;
+            border-color: #fca5a5;
+            border-width: 1px;
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(60%);
+        }
+
+        .is-clashing {
+            background-color: #fff7ed !important;
+            border-color: #fdba74 !important;
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+        
+        /* Full Box Highlight for Selected Modules */
+        .is-selected {
+            background-color: #10b981 !important;
+            border-color: #059669 !important;
+            border-width: 2px;
+            box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.4) !important;
+        }
+        /* Override child text colors when selected */
+        .is-selected h3, .is-selected span, .is-selected p {
+            color: #ffffff !important;
+        }
+        .is-selected .status-pill {
+            background-color: rgba(255, 255, 255, 0.25) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+        }
+        .is-selected .card-footer-bg {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+        }
+        .is-selected .info-btn {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+        .is-selected .info-btn:hover {
+            color: #ffffff !important;
+        }
+
+        @keyframes highlight-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .highlight-core {
+            animation: highlight-pulse 1s cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(4px); }
+            40%, 80% { transform: translateX(-4px); }
+        }
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200 py-3 px-6 z-50 flex-shrink-0">
+        <div class="max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-brand-100 rounded-lg text-brand-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight leading-none">Course Selector</h1>
+                </div>
+            </div>
+            
+            <div class="w-full md:w-auto flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 shadow-inner">
+                <label for="course-select" class="font-semibold text-slate-700 text-sm pl-2">Degree:</label>
+                <select id="course-select" class="block w-full md:w-64 pl-2 pr-8 py-1.5 text-sm font-medium border-slate-300 focus:ring-2 focus:ring-brand-500 rounded-md border bg-white cursor-pointer hover:border-brand-400 outline-none">
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="w-full max-w-[1400px] mx-auto px-6 py-2 flex flex-wrap gap-x-4 gap-y-2 text-[11px] z-10 flex-shrink-0">
+        <div class="flex items-center gap-1.5 bg-white/80 backdrop-blur px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
+            <div class="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-200"></div>
+            <span class="font-medium text-slate-700">Core</span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-white/80 backdrop-blur px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
+            <div class="w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-400"></div>
+            <span class="font-medium text-slate-700">Optional</span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-white/80 backdrop-blur px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
+            <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+            <span class="font-medium text-slate-700">Selected</span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-white/80 backdrop-blur px-2.5 py-1 rounded-full border border-slate-200 shadow-sm opacity-70">
+            <div class="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+            <span class="font-medium text-slate-600">Unavailable</span>
+        </div>
+        
+        <div class="ml-auto flex items-center bg-brand-50 px-3 py-1 rounded-full border border-brand-200 shadow-sm text-brand-800 font-bold">
+            Credits: <span id="total-credits-count" class="ml-1.5 text-brand-600">0</span>
+        </div>
+    </div>
+
+    <main class="flex-grow flex flex-col w-full relative overflow-hidden items-center justify-center">
+        <div class="flow-container flex items-center gap-6 px-12 py-8 w-full h-full overflow-auto relative z-0" id="flow-map">
+            
+            <!-- ====== YEAR 1 : SEMESTER 1 ====== -->
+            <div class="semester-column flex flex-col w-[200px] flex-shrink-0 relative my-auto">
+                <div class="absolute inset-x-0 -top-12 z-20 text-center mb-2">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Year 1</div>
+                    <h2 class="font-extrabold text-xs text-slate-800 bg-white/90 backdrop-blur inline-block px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">Semester 1</h2>
+                </div>
+                <div class="absolute left-1/2 -top-4 bottom-0 w-px bg-slate-200 -z-10"></div>
+                
+                <div class="flex flex-col gap-2 relative z-10" id="y1s1-container"></div>
+            </div>
+
+            <!-- Flow Connector Y1S1 to Y1S2 -->
+            <div class="flex items-center justify-center -mx-3 z-0 text-slate-300 opacity-60 my-auto">
+                <svg width="24" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><path d="M0,10 L25,10" /><path d="M25,10 L18,5 M25,10 L18,15" /></svg>
+            </div>
+
+            <!-- ====== YEAR 1 : SEMESTER 2 ====== -->
+            <div class="semester-column flex flex-col w-[200px] flex-shrink-0 relative my-auto">
+                <div class="absolute inset-x-0 -top-12 z-20 text-center mb-2">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Year 1</div>
+                    <h2 class="font-extrabold text-xs text-slate-800 bg-white/90 backdrop-blur inline-block px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">Semester 2</h2>
+                </div>
+                <div class="absolute left-1/2 -top-4 bottom-0 w-px bg-slate-200 -z-10"></div>
+                
+                <div class="flex flex-col gap-2 relative z-10" id="y1s2-container"></div>
+            </div>
+
+            <!-- Flow Connector Y1 to Year 2 -->
+            <div class="flex items-center justify-center mx-1 z-0 my-auto">
+                <div class="bg-white rounded-full p-1 border-2 border-brand-200 shadow-sm z-10 text-brand-500">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                </div>
+                <div class="absolute w-12 h-px border-t-2 border-dashed border-brand-200 -z-10"></div>
+            </div>
+
+            <!-- ====== YEAR 2 ====== -->
+            <div class="absolute inset-x-0 -top-16 z-30 text-center flex items-center justify-center pointer-events-none">
+                <h2 class="text-base font-extrabold text-brand-900 bg-brand-100/90 backdrop-blur px-4 py-1 rounded-full border border-brand-300 shadow-sm uppercase tracking-wide">Year 2</h2>
+            </div>
+
+            <!-- ====== YEAR 2 : SEMESTER 1 ====== -->
+            <div class="semester-column flex flex-col w-[200px] flex-shrink-0 relative my-auto pt-6">
+                <div class="absolute inset-x-0 top-0 z-20 text-center flex flex-col items-center">
+                    <h2 class="font-extrabold text-xs text-slate-800 bg-white/90 backdrop-blur inline-block px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">Semester 1</h2>
+                    <div class="mt-1.5 bg-white/90 px-2 py-0.5 rounded text-[10px] border border-slate-100 flex items-center gap-2">
+                        <span class="font-medium text-slate-600"><span id="s1-count" class="text-brand-600 font-bold">0</span>/4</span>
+                        <button class="hover:text-red-500 text-slate-400 clear-btn transition-colors" data-semester="y2s1" title="Clear Semester">
+                           <svg class="w-3 h-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="absolute left-1/2 top-8 bottom-0 w-px bg-slate-200 -z-10"></div>
+                
+                <div class="flex flex-col gap-2 relative z-10 pb-6 pt-4" id="y2s1-container"></div>
+            </div>
+
+            <div class="flex items-center justify-center -mx-3 z-0 text-slate-300 opacity-60 my-auto pt-6">
+                <svg width="24" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><path d="M0,10 L25,10" /><path d="M25,10 L18,5 M25,10 L18,15" /></svg>
+            </div>
+
+            <!-- ====== YEAR 2 : SEMESTER 2 ====== -->
+            <div class="semester-column flex flex-col w-[200px] flex-shrink-0 relative pr-2 my-auto pt-6">
+                <div class="absolute inset-x-0 top-0 z-20 text-center flex flex-col items-center">
+                    <h2 class="font-extrabold text-xs text-slate-800 bg-white/90 backdrop-blur inline-block px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">Semester 2</h2>
+                    <div class="mt-1.5 bg-white/90 px-2 py-0.5 rounded text-[10px] border border-slate-100 flex items-center gap-2">
+                        <span class="font-medium text-slate-600"><span id="s2-count" class="text-brand-600 font-bold">0</span>/4</span>
+                        <button class="hover:text-red-500 text-slate-400 clear-btn transition-colors" data-semester="y2s2" title="Clear Semester">
+                           <svg class="w-3 h-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="absolute left-1/2 top-8 bottom-0 w-px bg-slate-200 -z-10"></div>
+                
+                <div class="flex flex-col gap-2 relative z-10 pb-6 pt-4" id="y2s2-container"></div>
+            </div>
+
+        </div>
+    </main>
+    
+    <div id="alert-container" class="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <div id="info-modal" class="fixed inset-0 z-[150] bg-slate-900/40 backdrop-blur-sm hidden flex-col items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl p-5 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300" id="info-modal-content">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <h3 id="modal-code" class="text-[11px] font-bold text-brand-500 tracking-wider font-mono"></h3>
+                    <h2 id="modal-title" class="text-lg font-extrabold text-slate-800 leading-tight mt-1"></h2>
+                </div>
+                <button id="close-modal" class="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="space-y-3 pt-2">
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="font-semibold text-slate-400 text-xs w-16">Credits</span>
+                    <span id="modal-credits" class="text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded"></span>
+                </div>
+                <div class="flex items-start gap-3 text-sm">
+                    <span class="font-semibold text-slate-400 text-xs w-16 pt-0.5">Convener</span>
+                    <span id="modal-convener" class="text-slate-700 font-medium flex-1"></span>
+                </div>
+                <div class="flex items-center gap-3 text-sm pt-3 border-t border-slate-100">
+                    <span class="font-semibold text-slate-400 text-xs w-16">Status</span>
+                    <span id="modal-status"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const allModules = [
+            // Year 1 Semester 1 (Core for all, 30 credits each)
+            { id: 'bs1030', title: 'Core Biological Concepts 1', code: 'BS 1030', semester: 'y1s1', credits: 30, convener: 'Dr. Foundation', category: 'core' },
+            { id: 'bs1040', title: 'Core Biological Concepts 2', code: 'BS 1040', semester: 'y1s1', credits: 30, convener: 'Dr. Foundation', category: 'core' },
+            
+            // Year 1 Semester 2 (Core for all, 15 credits each)
+            { id: 'bs1050', title: 'Foundations of Biology 1', code: 'BS 1050', semester: 'y1s2', credits: 15, convener: 'Dr. Foundation', category: 'core' },
+            { id: 'bs1060', title: 'Foundations of Biology 2', code: 'BS 1060', semester: 'y1s2', credits: 30, convener: 'Dr. Foundation', category: 'core' },
+            { id: 'bs1070', title: 'Foundations of Biology 3', code: 'BS 1070', semester: 'y1s2', credits: 15, convener: 'Dr. Foundation', category: 'core' },
+
+            // Year 2 - Semester 1
+            { id: 'bs2200', title: 'Research Skills 1', code: 'BS 2200', semester: 'y2s1', credits: 15, convener: 'Dr Nicola Suter-Giorgini, Dr Alix Blockley', category: 'research' },
+            { id: 'bs2009', title: 'Genomes', code: 'BS 2009', semester: 'y2s1', credits: 15, convener: 'Dr Celia May, Prof David Twell', category: 'genetics' },
+            { id: 'bs2013', title: 'Physiology and Pharmacology', code: 'BS 2013', semester: 'y2s1', credits: 15, convener: 'Dr Saba Imanzadeh, Prof Martyn Mahaut-Smith', category: 'physiology' },
+            { id: 'bs2015', title: 'Physiology of Excitable Cells', code: 'BS 2015', semester: 'y2s1', credits: 15, convener: 'Dr Paul Glynn, Dr Volko Straub, Dr Emily Allen', clashesWith: ['bs2030'], category: 'physiology' },
+            { id: 'bs2030', title: 'Principles of Microbiology', code: 'BS 2030', semester: 'y2s1', credits: 15, convener: 'Dr Hasan Yesilkaya', clashesWith: ['bs2015'], category: 'microbiology' },
+            { id: 'bs2059', title: 'Global Change Biology', code: 'BS 2059', semester: 'y2s1', credits: 15, convener: 'Dr Moya Burns, Dr Rob Hammond', category: 'ecology' },
+            { id: 'bs2093', title: 'Protein Structure and Function', code: 'BS 2093', semester: 'y2s1', credits: 15, convener: 'Dr Mark Leyland, Prof Geerten Vuister', clashesWith: ['mb2020'], category: 'biochem' },
+            { id: 'bs2094', title: 'Intro to Python Programming', code: 'BS 2094', semester: 'y2s1', credits: 15, convener: 'Dr Cheryl Hurkett, Dr TJ Ragan', category: 'other' },
+            { id: 'mb2020', title: 'Medical Microbiology', code: 'MB 2020', semester: 'y2s1', credits: 15, convener: 'Prof Galina Mukamolova, Dr Helen O\'Hare', clashesWith: ['bs2093'], category: 'microbiology' },
+            { id: 'mb2050', title: 'Biochem Approaches to Therapeutic Dev', code: 'MB 2050', semester: 'y2s1', credits: 15, convener: 'Dr Sue Shackleton', category: 'biochem' },
+            { id: 'mb2051', title: 'Current Issues in Medical Genetics', code: 'MB 2051', semester: 'y2s1', credits: 15, convener: 'Dr Chris Talbot, Prof Mark Jobling', category: 'genetics' },
+
+            // Year 2 - Semester 2
+            { id: 'bs2000', title: 'Research Skills 2', code: 'BS 2000', semester: 'y2s2', credits: 15, convener: 'Dr Nicola Suter-Giorgini, Dr Alix Blockley', category: 'research' },
+            { id: 'bs2004', title: 'Contemp Techniques in Bio Data Analysis', code: 'BS 2004', semester: 'y2s2', credits: 15, convener: 'Prof Eamonn Mallon, Dr Swidbert Ott', category: 'other' },
+            { id: 'bs2014', title: 'Exercise Physiology and Pharmacology', code: 'BS 2014', semester: 'y2s2', credits: 15, convener: 'Dr Catherine Vial', category: 'physiology' },
+            { id: 'bs2026', title: 'Genes, Development and Inheritance', code: 'BS 2026', semester: 'y2s2', credits: 15, convener: 'Prof Mark Jobling, Dr Ko-Fan Chen', category: 'genetics' },
+            { id: 'bs2032', title: 'Immunology & Euk Microbiology', code: 'BS 2032', semester: 'y2s2', credits: 15, convener: 'Prof Andrea Cooper, Dr Hasan Yesilkaya', mutexWith: ['bs2033'], clashesWith: ['bs2066', 'bs2077'], category: 'microbiology' },
+            { id: 'bs2033', title: 'Immunology & Euk Micro (+ Trip)', code: 'BS 2033', semester: 'y2s2', credits: 15, convener: 'Prof Andrea Cooper, Dr Hasan Yesilkaya', mutexWith: ['bs2032'], clashesWith: ['bs2066', 'bs2077'], category: 'microbiology' },
+            { id: 'bs2040', title: 'Bioinformatics', code: 'BS 2040', semester: 'y2s2', credits: 15, convener: 'Dr Richard Badge, Prof David Twell', category: 'genetics' },
+            { id: 'bs2066', title: 'Behavioural Neurobiology', code: 'BS 2066', semester: 'y2s2', credits: 15, convener: 'Dr Tom Matheson, Dr Swidbert Ott', mutexWith: ['bs2077'], clashesWith: ['bs2032', 'bs2033'], category: 'neuro' },
+            { id: 'bs2077', title: 'Neurobiology and Animal Behaviour', code: 'BS 2077', semester: 'y2s2', credits: 15, convener: 'Dr Tom Matheson, Dr Swidbert Ott', mutexWith: ['bs2066'], clashesWith: ['bs2032', 'bs2033'], category: 'neuro' },
+            { id: 'bs2078', title: 'A Field Guide to Evolution', code: 'BS 2078', semester: 'y2s2', credits: 15, convener: 'Dr Rob Hammond, Dr Stuart Desjardins', category: 'ecology' },
+            { id: 'bs2091', title: 'From Genes to Proteins', code: 'BS 2091', semester: 'y2s2', credits: 15, convener: 'Dr Olga Makarova, Prof Thomas Schalch', mutexWith: ['bs2092'], category: 'biochem' },
+            { id: 'bs2092', title: 'Molecular Cell Biology', code: 'BS 2092', semester: 'y2s2', credits: 15, convener: 'Dr Sally Prigent, Dr Sue Shackleton', mutexWith: ['bs2091'], category: 'biochem' },
+            { id: 'mb2080', title: 'Pathophysiology of Disease', code: 'MB 2080', semester: 'y2s2', credits: 15, convener: 'Dr Jonathan Willets, Dr Nina Storey', category: 'physiology' }
+        ];
+
+        const degreeCourses = [
+            { 
+                id: 'bsc-biol', 
+                name: 'Biological Sciences', 
+                rules: { 
+                    core: ['bs2200', 'bs2000'], 
+                    unavailable: ['mb2050', 'mb2051', 'mb2080'] 
+                } 
+            },
+            { 
+                id: 'bsc-physio', 
+                name: 'Physiology with Pharmacology', 
+                rules: { 
+                    core: ['bs2200', 'bs2013', 'bs2015', 'bs2000', 'bs2014'], 
+                    unavailable: ['bs2030', 'mb2050', 'mb2051', 'mb2080', 'mb2020', 'bs2093', 'bs2059', 'bs2094', 'bs2004', 'bs2078', 'bs2091', 'bs2092'] 
+                } 
+            },
+            { 
+                id: 'bsc-biochem', 
+                name: 'Biochemistry', 
+                rules: { 
+                    core: ['bs2200', 'bs2093', 'bs2000', 'bs2091', 'bs2092'], 
+                    unavailable: ['mb2020', 'mb2050', 'mb2051', 'mb2080', 'bs2015', 'bs2030', 'bs2059', 'bs2014', 'bs2078', 'mb2080', 'bs2013', 'bs2094'] 
+                } 
+            },
+            { 
+                id: 'bsc-genetics', 
+                name: 'Genetics', 
+                rules: { 
+                    core: ['bs2200', 'bs2009', 'bs2000', 'bs2026', 'bs2040'], 
+                    unavailable: ['mb2050', 'mb2051', 'mb2080', 'bs2030', 'bs2093', 'bs2059', 'bs2014', 'bs2078'] 
+                } 
+            },
+            { 
+                id: 'bsc-micro', 
+                name: 'Microbiology', 
+                rules: { 
+                    core: ['bs2200', 'bs2030', 'mb2020', 'bs2000', 'bs2032'], 
+                    unavailable: ['bs2015', 'bs2093', 'mb2050', 'mb2051', 'bs2066', 'bs2077', 'mb2080', 'bs2059', 'bs2014', 'bs2078', 'bs2091', 'bs2092'] 
+                } 
+            },
+            { 
+                id: 'bsc-neuro', 
+                name: 'Neuroscience', 
+                rules: { 
+                    core: ['bs2200', 'bs2013', 'bs2015', 'bs2000', 'bs2066'], 
+                    unavailable: ['bs2030', 'bs2093', 'mb2020', 'mb2050', 'mb2051', 'bs2032', 'bs2033', 'mb2080', 'bs2077', 'bs2059', 'bs2014', 'bs2078', 'bs2091', 'bs2092'] 
+                } 
+            },
+            { 
+                id: 'bsc-zool', 
+                name: 'Zoology', 
+                rules: { 
+                    core: ['bs2200', 'bs2059', 'bs2000', 'bs2026', 'bs2077'], 
+                    unavailable: ['mb2050', 'mb2051', 'bs2032', 'bs2033', 'mb2080', 'bs2015', 'bs2030', 'bs2066', 'bs2093'] 
+                } 
+            },
+            { 
+                id: 'bsc-medphysio', 
+                name: 'Medical Physiology', 
+                rules: { 
+                    core: ['bs2200', 'bs2013', 'bs2015', 'bs2000', 'bs2014', 'mb2080'], 
+                    unavailable: ['bs2030', 'mb2050', 'mb2051', 'bs2091', 'mb2020', 'bs2093', 'bs2059', 'bs2078', 'bs2092', 'bs2066', 'bs2077'] 
+                } 
+            },
+            { 
+                id: 'bsc-medbiochem', 
+                name: 'Medical Biochemistry', 
+                rules: { 
+                    core: ['bs2200', 'bs2093', 'mb2050', 'bs2000', 'bs2091', 'bs2092'], 
+                    unavailable: ['mb2020', 'mb2051', 'mb2080', 'bs2015', 'bs2030', 'bs2059', 'bs2078', 'bs2013'] 
+                } 
+            },
+            { 
+                id: 'bsc-medgenetics', 
+                name: 'Medical Genetics', 
+                rules: { 
+                    core: ['bs2200', 'bs2009', 'mb2051', 'bs2000', 'bs2026', 'bs2040'], 
+                    unavailable: ['mb2050', 'mb2080', 'bs2030', 'bs2093', 'bs2059', 'bs2014', 'bs2078'] 
+                } 
+            },
+            { 
+                id: 'bsc-medmicro', 
+                name: 'Medical Microbiology', 
+                rules: { 
+                    core: ['bs2200', 'bs2030', 'mb2020', 'bs2000', 'bs2032'], 
+                    unavailable: ['bs2015', 'bs2093', 'mb2050', 'mb2051', 'bs2066', 'bs2077', 'mb2080', 'bs2059', 'bs2014', 'bs2078', 'bs2091', 'bs2092'] 
+                } 
+            }
+        ];
+
+        let currentCourseId = 'bsc-biol';
+        let selectedModules = new Set();
+        const MAX_PER_SEMESTER = 4;
+
+        const courseSelect = document.getElementById('course-select');
+        const containers = {
+            'y1s1': document.getElementById('y1s1-container'),
+            'y1s2': document.getElementById('y1s2-container'),
+            'y2s1': document.getElementById('y2s1-container'),
+            'y2s2': document.getElementById('y2s2-container')
+        };
+        const countSpans = {
+            'y2s1': document.getElementById('s1-count'),
+            'y2s2': document.getElementById('s2-count')
+        };
+        const totalCreditsSpan = document.getElementById('total-credits-count');
+        const alertContainer = document.getElementById('alert-container');
+        const infoModal = document.getElementById('info-modal');
+        const modalContent = document.getElementById('info-modal-content');
+
+        const categoryColors = {
+            'core': 'border-l-4 border-l-blue-400',
+            'research': 'border-l-4 border-l-emerald-400',
+            'genetics': 'border-l-4 border-l-purple-400',
+            'physiology': 'border-l-4 border-l-pink-400',
+            'microbiology': 'border-l-4 border-l-yellow-400',
+            'ecology': 'border-l-4 border-l-green-400',
+            'biochem': 'border-l-4 border-l-teal-400',
+            'neuro': 'border-l-4 border-l-indigo-400',
+            'other': 'border-l-4 border-l-slate-400'
+        };
+
+        function showAlert(message) {
+            const alertEl = document.createElement('div');
+            alertEl.className = `flex items-center p-2.5 bg-red-50 text-red-800 border border-red-200 rounded-lg shadow-md transition-all duration-300 transform translate-x-full opacity-0 font-medium text-xs`;
+            alertEl.innerHTML = `<svg class="w-4 h-4 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg> ${message}`;
+            alertContainer.appendChild(alertEl);
+            setTimeout(() => alertEl.classList.remove('translate-x-full', 'opacity-0'), 10);
+            setTimeout(() => {
+                alertEl.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => alertEl.remove(), 300);
+            }, 3000);
+        }
+
+        function openInfoModal(module, status) {
+            document.getElementById('modal-code').textContent = module.code;
+            document.getElementById('modal-title').textContent = module.title;
+            document.getElementById('modal-credits').textContent = module.credits + ' Credits';
+            document.getElementById('modal-convener').textContent = module.convener;
+            
+            const statusEl = document.getElementById('modal-status');
+            if (status === 'core') {
+                statusEl.innerHTML = '<span class="px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold text-[10px] tracking-wide uppercase">Core Requirement</span>';
+            } else if (status === 'unavailable') {
+                statusEl.innerHTML = '<span class="px-2 py-1 rounded bg-red-100 text-red-700 font-bold text-[10px] tracking-wide uppercase">Unavailable for Degree</span>';
+            } else {
+                statusEl.innerHTML = '<span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-bold text-[10px] tracking-wide uppercase border border-slate-200">Optional Module</span>';
+            }
+            
+            infoModal.classList.remove('hidden');
+            void infoModal.offsetWidth;
+            infoModal.classList.remove('opacity-0');
+            modalContent.classList.remove('scale-95');
+        }
+
+        document.getElementById('close-modal').addEventListener('click', () => {
+            infoModal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => infoModal.classList.add('hidden'), 300);
+        });
+
+        infoModal.addEventListener('click', (e) => {
+            if (e.target === infoModal) document.getElementById('close-modal').click();
+        });
+
+        function getModuleStatus(moduleId, courseId) {
+            if (moduleId.startsWith('bs10')) return 'core';
+            const course = degreeCourses.find(c => c.id === courseId);
+            if (!course) return 'optional';
+            if (course.rules.core.includes(moduleId)) return 'core';
+            if (course.rules.unavailable.includes(moduleId)) return 'unavailable';
+            return 'optional';
+        }
+
+        function createModuleElement(module, status) {
+            const el = document.createElement('div');
+            const colorClass = categoryColors[module.category] || '';
+            el.className = `module-card border bg-white rounded-lg p-2 select-none status-${status} group ${colorClass}`;
+            el.dataset.id = module.id;
+            el.dataset.semester = module.semester;
+            el.dataset.status = status;
+
+            if (selectedModules.has(module.id)) el.classList.add('is-selected');
+
+            let statusHTML = '';
+            if (status === 'core') {
+                statusHTML = `<span class="status-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide bg-blue-100 text-blue-700">Core</span>`;
+            } else if (status === 'unavailable') {
+                statusHTML = `<span class="status-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide bg-red-100 text-red-700">N/A</span>`;
+            } else {
+                statusHTML = `<span class="status-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide bg-slate-100 text-slate-500 border border-slate-200" data-original-text="Optional" data-original-color="bg-slate-100 text-slate-500">Opt</span>`;
+            }
+
+            el.innerHTML = `
+                <div class="flex justify-between items-start mb-1">
+                    <span class="text-[10px] font-bold font-mono tracking-wider text-slate-400 code-text">${module.code}</span>
+                    <div class="flex items-center gap-1">
+                        ${statusHTML}
+                        <button class="info-btn text-slate-300 hover:text-brand-500 transition-colors z-20" aria-label="Info" title="Module Details">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <h3 class="font-bold text-[11px] leading-snug mb-1 text-slate-800 title-text pr-1">${module.title}</h3>
+                <div class="flex justify-between items-end pt-1 border-t border-slate-100/60 card-footer-bg">
+                    <span class="text-[9px] font-semibold text-slate-400 bg-slate-50 px-1 py-0.5 rounded credits-text">${module.credits} cr</span>
+                </div>
+            `;
+
+            const infoBtn = el.querySelector('.info-btn');
+            infoBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openInfoModal(module, status);
+            });
+
+            if (status !== 'unavailable') {
+                el.addEventListener('click', () => toggleModuleSelection(module, status, el));
+            }
+
+            return el;
+        }
+
+        function updateUI() {
+            const counts = { 'y2s1': 0, 'y2s2': 0 };
+            let totalCredits = 0;
+
+            selectedModules.forEach(moduleId => {
+                const module = allModules.find(m => m.id === moduleId);
+                if (module) {
+                    if (module.semester.startsWith('y2')) counts[module.semester]++;
+                    totalCredits += module.credits;
+                }
+            });
+
+            ['y2s1', 'y2s2'].forEach(sem => {
+                const span = countSpans[sem];
+                const count = counts[sem];
+                span.textContent = count;
+                span.parentElement.className = count === MAX_PER_SEMESTER 
+                    ? 'font-medium text-emerald-600' 
+                    : 'font-medium text-slate-600';
+                span.className = count === MAX_PER_SEMESTER ? 'text-emerald-600 font-bold' : 'text-brand-600 font-bold';
+            });
+
+            totalCreditsSpan.textContent = totalCredits;
+
+            // Update Dynamic Clashes & Mutually Exclusive modules
+            document.querySelectorAll('.module-card').forEach(card => {
+                const moduleId = card.dataset.id;
+                const status = card.dataset.status;
+                
+                if (status === 'optional') {
+                    const module = allModules.find(m => m.id === moduleId);
+                    const pill = card.querySelector('.status-pill');
+                    
+                    let conflictCode = null;
+                    let conflictName = 'Conflict';
+
+                    // Check mutexWith
+                    if (module.mutexWith) {
+                        const mutexId = module.mutexWith.find(id => selectedModules.has(id));
+                        if (mutexId) {
+                            conflictCode = allModules.find(m => m.id === mutexId).code;
+                            conflictName = 'Mutex: ' + conflictCode;
+                        }
+                    }
+
+                    // Check clashesWith
+                    if (!conflictCode && module.clashesWith) {
+                        const clashId = module.clashesWith.find(id => selectedModules.has(id));
+                        if (clashId) {
+                            conflictCode = allModules.find(m => m.id === clashId).code;
+                            conflictName = 'Clash: ' + conflictCode;
+                        }
+                    }
+
+                    if (conflictCode && !selectedModules.has(moduleId)) {
+                        card.classList.add('is-clashing');
+                        pill.textContent = conflictName;
+                        pill.className = `status-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide bg-orange-100 text-orange-700`;
+                    } else {
+                        card.classList.remove('is-clashing');
+                        pill.textContent = pill.dataset.originalText || 'Opt';
+                        pill.className = `status-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide ${pill.dataset.originalColor || 'bg-slate-100 text-slate-500 border border-slate-200'}`;
+                    }
+                }
+            });
+        }
+
+        function toggleModuleSelection(module, status, element) {
+            if (status === 'core') {
+                element.classList.add('shake');
+                setTimeout(() => element.classList.remove('shake'), 400);
+                return;
+            }
+
+            if (element.classList.contains('is-clashing')) {
+                const moduleInfo = allModules.find(m => m.id === module.id);
+                let conflictCode = '';
+                if (moduleInfo.mutexWith) {
+                    const mutexId = moduleInfo.mutexWith.find(id => selectedModules.has(id));
+                    if (mutexId) conflictCode = allModules.find(m => m.id === mutexId).code;
+                }
+                if (!conflictCode && moduleInfo.clashesWith) {
+                    const clashId = moduleInfo.clashesWith.find(id => selectedModules.has(id));
+                    if (clashId) conflictCode = allModules.find(m => m.id === clashId).code;
+                }
+                showAlert(`Cannot take alongside ${conflictCode} (Mutually exclusive / Timetable Clash)`);
+                return;
+            }
+
+            const isCurrentlySelected = selectedModules.has(module.id);
+            
+            if (!isCurrentlySelected) {
+                if (module.semester.startsWith('y2')) {
+                    let currentSemCount = 0;
+                    selectedModules.forEach(id => {
+                        const m = allModules.find(x => x.id === id);
+                        if (m && m.semester === module.semester) currentSemCount++;
+                    });
+                    if (currentSemCount >= MAX_PER_SEMESTER) {
+                        showAlert(`Max 4 optional modules reached for this semester`);
+                        return;
+                    }
+                }
+                selectedModules.add(module.id);
+                element.classList.add('is-selected');
+            } else {
+                selectedModules.delete(module.id);
+                element.classList.remove('is-selected');
+            }
+            updateUI();
+        }
+
+        function renderBoard() {
+            Object.values(containers).forEach(container => container.innerHTML = '');
+
+            allModules.forEach(module => {
+                const status = getModuleStatus(module.id, currentCourseId);
+                const el = createModuleElement(module, status);
+                
+                if (status === 'core') {
+                    el.classList.add('highlight-core');
+                    setTimeout(() => el.classList.remove('highlight-core'), 1000);
+                }
+
+                containers[module.semester].appendChild(el);
+            });
+            updateUI();
+        }
+
+        function changeCourse(courseId) {
+            currentCourseId = courseId;
+            selectedModules.clear();
+
+            allModules.forEach(m => {
+                if (getModuleStatus(m.id, courseId) === 'core') selectedModules.add(m.id);
+            });
+
+            renderBoard();
+        }
+
+        document.querySelectorAll('.clear-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const sem = e.currentTarget.dataset.semester;
+                let removedAny = false;
+
+                Array.from(selectedModules).forEach(moduleId => {
+                    const module = allModules.find(m => m.id === moduleId);
+                    if (module && module.semester === sem) {
+                        if (getModuleStatus(moduleId, currentCourseId) === 'optional') {
+                            selectedModules.delete(moduleId);
+                            removedAny = true;
+                            const el = document.querySelector(`.module-card[data-id="${moduleId}"]`);
+                            if(el) el.classList.remove('is-selected');
+                        }
+                    }
+                });
+                if (removedAny) updateUI();
+            });
+        });
+
+        degreeCourses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = course.name;
+            courseSelect.appendChild(option);
+        });
+        courseSelect.addEventListener('change', (e) => changeCourse(e.target.value));
+
+        courseSelect.value = 'bsc-biol';
+        changeCourse('bsc-biol');
+
+        const map = document.getElementById('flow-map');
+        setTimeout(() => map.scrollTo({ left: map.scrollWidth / 4, behavior: 'smooth' }), 500);
+    </script>
+</body>
+</html>
