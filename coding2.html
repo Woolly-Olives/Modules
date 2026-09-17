@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>University Course Module Selector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        },
+                        'module': {
+                            'core': '#dbeafe', // blue-100
+                            'core-border': '#3b82f6', // blue-500
+                            'core-text': '#1e3a8a', // blue-900
+                            'optional': '#f3f4f6', // gray-100
+                            'optional-border': '#9ca3af', // gray-400
+                            'optional-text': '#374151', // gray-700
+                            'unavailable': '#fee2e2', // red-100
+                            'unavailable-border': '#ef4444', // red-500
+                            'unavailable-text': '#7f1d1d', // red-900
+                            'clash': '#ffedd5', // orange-100
+                            'clash-border': '#f97316', // orange-500
+                            'clash-text': '#7c2d12', // orange-900
+                            'selected': '#10b981', // emerald-500
+                            'selected-bg': '#d1fae5', // emerald-100
+                            'selected-text': '#064e3b' // emerald-900
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        .module-card {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .module-card:hover:not(.status-unavailable):not(.is-clashing) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+        }
+
+        .status-core {
+            background-color: theme('colors.module.core');
+            border-color: theme('colors.module.core-border');
+            color: theme('colors.module.core-text');
+        }
+        
+        .status-optional {
+            background-color: theme('colors.module.optional');
+            border-color: theme('colors.module.optional-border');
+            color: theme('colors.module.optional-text');
+        }
+        
+        .status-unavailable {
+            background-color: theme('colors.module.unavailable');
+            border-color: theme('colors.module.unavailable-border');
+            color: theme('colors.module.unavailable-text');
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .is-clashing {
+            background-color: theme('colors.module.clash') !important;
+            border-color: theme('colors.module.clash-border') !important;
+            color: theme('colors.module.clash-text') !important;
+            opacity: 0.75;
+            cursor: not-allowed;
+        }
+        
+        .is-selected {
+            background-color: theme('colors.module.selected-bg') !important;
+            border-color: theme('colors.module.selected') !important;
+            border-width: 2px;
+            color: theme('colors.module.selected-text') !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Custom scrollbar for module lists */
+        .module-list-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .module-list-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .module-list-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <header class="bg-white shadow-sm border-b border-slate-200 py-4 px-6 md:px-8 lg:px-12 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-brand-900 tracking-tight">Degree Path Builder</h1>
+                <p class="text-sm text-slate-500 mt-1">Select your course and choose up to 4 modules per semester.</p>
+            </div>
+            
+            <div class="w-full md:w-auto flex items-center gap-3">
+                <label for="course-select" class="font-medium text-slate-700 whitespace-nowrap">Select Degree:</label>
+                <select id="course-select" class="block w-full md:w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-md border shadow-sm bg-white">
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col">
+        
+        <!-- Legend and Status -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+            <div class="flex flex-wrap gap-4 text-sm">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-4 rounded border border-module-core-border bg-module-core"></div>
+                    <span class="font-medium">Core Module</span>
+                    <span class="text-xs text-slate-500">(Required)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-4 rounded border border-module-optional-border bg-module-optional"></div>
+                    <span class="font-medium">Optional Module</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-4 rounded border border-module-unavailable-border bg-module-unavailable opacity-60"></div>
+                    <span class="font-medium text-slate-500">Unavailable</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-4 rounded border-2 border-module-selected bg-module-selected-bg"></div>
+                    <span class="font-medium text-emerald-700">Selected</span>
+                </div>
+            </div>
+            
+            <div class="text-sm font-medium bg-slate-100 px-3 py-1.5 rounded-full text-slate-700" id="selection-status">
+                Total Credits: <span id="total-credits-count">0</span>/120 (Year 2)
+            </div>
+        </div>
+
+        <!-- Year 2 Header -->
+        <div class="mb-6 flex items-center justify-center border-b border-slate-200 pb-4">
+            <h2 class="text-3xl font-extrabold text-brand-900 tracking-tight">Year 2</h2>
+        </div>
+
+        <!-- Semester Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow">
+            
+            <!-- Semester 1 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div class="bg-slate-50 border-b border-slate-200 px-4 py-3 flex justify-between items-center">
+                    <h2 class="font-semibold text-lg text-slate-800">Semester 1</h2>
+                </div>
+                <div class="px-4 py-2 bg-brand-50 border-b border-brand-100 flex justify-between items-center text-sm">
+                    <span class="font-medium text-brand-900">Selected: <span id="s1-count">0</span>/4</span>
+                    <button class="text-xs text-brand-600 hover:text-brand-800 font-medium clear-btn" data-semester="1">Clear Optional</button>
+                </div>
+                <div class="p-4 flex-grow module-list-scroll overflow-y-auto" style="max-height: 60vh;" id="semester-1-container">
+                    <!-- Modules for S1 will go here -->
+                </div>
+            </div>
+
+            <!-- Semester 2 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div class="bg-slate-50 border-b border-slate-200 px-4 py-3 flex justify-between items-center">
+                    <h2 class="font-semibold text-lg text-slate-800">Semester 2</h2>
+                </div>
+                <div class="px-4 py-2 bg-brand-50 border-b border-brand-100 flex justify-between items-center text-sm">
+                    <span class="font-medium text-brand-900">Selected: <span id="s2-count">0</span>/4</span>
+                    <button class="text-xs text-brand-600 hover:text-brand-800 font-medium clear-btn" data-semester="2">Clear Optional</button>
+                </div>
+                <div class="p-4 flex-grow module-list-scroll overflow-y-auto" style="max-height: 60vh;" id="semester-2-container">
+                    <!-- Modules for S2 will go here -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+    
+    <!-- Floating Alert for User Feedback -->
+    <div id="alert-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // Define all possible modules based on Reference2.png
+        const allModules = [
+            // Semester 1
+            { id: 'bs2200', title: 'Research Skills 1', code: 'BS 2200', semester: 1, credits: 15, convener: 'Dr Nicola Suter-Giorgini, Dr Alix Blockley' },
+            { id: 'bs2009', title: 'Genomes', code: 'BS 2009', semester: 1, credits: 15, convener: 'Dr Celia May, Prof David Twell' },
+            { id: 'bs2013', title: 'Physiology and Pharmacology', code: 'BS 2013', semester: 1, credits: 15, convener: 'Dr Saba Imanzadeh, Prof Martyn Mahaut-Smith' },
+            { id: 'bs2015', title: 'Physiology of Excitable Cells', code: 'BS 2015', semester: 1, credits: 15, convener: 'Dr Paul Glynn, Dr Volko Straub, Dr Emily Allen', clashesWith: ['bs2030'] },
+            { id: 'bs2030', title: 'Principles of Microbiology', code: 'BS 2030', semester: 1, credits: 15, convener: 'Dr Hasan Yesilkaya', clashesWith: ['bs2015'] },
+            { id: 'bs2059', title: 'Global Change Biology and Conservation', code: 'BS 2059', semester: 1, credits: 15, convener: 'Dr Moya Burns, Dr Rob Hammond' },
+            { id: 'bs2093', title: 'Protein Structure and Function', code: 'BS 2093', semester: 1, credits: 15, convener: 'Dr Mark Leyland, Prof Geerten Vuister', clashesWith: ['mb2020'] },
+            { id: 'bs2094', title: 'Intro to Python Programming', code: 'BS 2094', semester: 1, credits: 15, convener: 'Dr Cheryl Hurkett, Dr TJ Ragan' },
+            { id: 'mb2020', title: 'Medical Microbiology', code: 'MB 2020', semester: 1, credits: 15, convener: 'Prof Galina Mukamolova, Dr Helen O\'Hare', clashesWith: ['bs2093'] },
+            { id: 'mb2050', title: 'Biochemical Approaches to Therapeutic Development', code: 'MB 2050', semester: 1, credits: 15, convener: 'Dr Sue Shackleton' },
+            { id: 'mb2051', title: 'Current Issues in Medical Genetics', code: 'MB 2051', semester: 1, credits: 15, convener: 'Dr Chris Talbot, Prof Mark Jobling' },
+
+            // Semester 2
+            { id: 'bs2000', title: 'Research Skills 2', code: 'BS 2000', semester: 2, credits: 15, convener: 'Dr Nicola Suter-Giorgini, Dr Alix Blockley' },
+            { id: 'bs2004', title: 'Contemporary Techniques in Biological Data Analysis', code: 'BS 2004', semester: 2, credits: 15, convener: 'Prof Eamonn Mallon, Dr Swidbert Ott' },
+            { id: 'bs2014', title: 'Exercise Physiology and Pharmacology', code: 'BS 2014', semester: 2, credits: 15, convener: 'Dr Catherine Vial' },
+            { id: 'bs2026', title: 'Genes, Development and Inheritance', code: 'BS 2026', semester: 2, credits: 15, convener: 'Prof Mark Jobling, Dr Ko-Fan Chen' },
+            { id: 'bs2032', title: 'Immunology and Eukaryotic Microbiology (+ Trip)', code: 'BS 2032/33', semester: 2, credits: 15, convener: 'Prof Andrea Cooper, Dr Hasan Yesilkaya', clashesWith: ['bs2066', 'bs2077'] },
+            { id: 'bs2040', title: 'Bioinformatics', code: 'BS 2040', semester: 2, credits: 15, convener: 'Dr Richard Badge, Prof David Twell' },
+            { id: 'bs2066', title: 'Behavioural Neurobiology', code: 'BS 2066', semester: 2, credits: 15, convener: 'Dr Tom Matheson, Dr Swidbert Ott', clashesWith: ['bs2032'] },
+            { id: 'bs2077', title: 'Neurobiology and Animal Behaviour', code: 'BS 2077', semester: 2, credits: 15, convener: 'Dr Tom Matheson, Dr Swidbert Ott', clashesWith: ['bs2032'] },
+            { id: 'bs2078', title: 'A Field Guide to Evolution', code: 'BS 2078', semester: 2, credits: 15, convener: 'Dr Rob Hammond, Dr Stuart Desjardins' },
+            { id: 'bs2091', title: 'From Genes to Proteins', code: 'BS 2091', semester: 2, credits: 15, convener: 'Dr Olga Makarova, Prof Thomas Schalch' },
+            { id: 'bs2092', title: 'Molecular Cell Biology', code: 'BS 2092', semester: 2, credits: 15, convener: 'Dr Sally Prigent, Dr Sue Shackleton' },
+            { id: 'mb2080', title: 'Pathophysiology of Disease', code: 'MB 2080', semester: 2, credits: 15, convener: 'Dr Jonathan Willets, Dr Nina Storey' }
+        ];
+
+        // Define the degree courses and their specific rules based on Reference2.png
+        const degreeCourses = [
+            {
+                id: 'bsc-biol',
+                name: 'Biological Sciences',
+                rules: {
+                    core: ['bs2200', 'bs2000'],
+                    unavailable: ['mb2050', 'mb2051', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-physio',
+                name: 'Physiology with Pharmacology',
+                rules: {
+                    core: ['bs2200', 'bs2013', 'bs2015', 'bs2000', 'bs2014'],
+                    unavailable: ['bs2030', 'mb2050', 'mb2051', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-biochem',
+                name: 'Biochemistry',
+                rules: {
+                    core: ['bs2200', 'bs2093', 'bs2000', 'bs2091', 'bs2092'],
+                    unavailable: ['mb2020', 'mb2050', 'mb2051', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-genetics',
+                name: 'Genetics',
+                rules: {
+                    core: ['bs2200', 'bs2009', 'bs2000', 'bs2026', 'bs2040'],
+                    unavailable: ['mb2050', 'mb2051', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-micro',
+                name: 'Microbiology',
+                rules: {
+                    core: ['bs2200', 'bs2030', 'mb2020', 'bs2000', 'bs2032'],
+                    unavailable: ['bs2015', 'bs2093', 'mb2050', 'mb2051', 'bs2066', 'bs2077', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-neuro',
+                name: 'Neuroscience',
+                rules: {
+                    core: ['bs2200', 'bs2013', 'bs2015', 'bs2000', 'bs2066'],
+                    unavailable: ['bs2030', 'bs2093', 'mb2020', 'mb2050', 'mb2051', 'bs2032', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-zool',
+                name: 'Zoology',
+                rules: {
+                    core: ['bs2200', 'bs2059', 'bs2000', 'bs2026', 'bs2077'],
+                    unavailable: ['mb2050', 'mb2051', 'bs2032', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-medphysio',
+                name: 'Medical Physiology',
+                rules: {
+                    core: ['bs2200', 'bs2013', 'bs2015', 'bs2000', 'bs2014', 'mb2080'],
+                    unavailable: ['bs2030', 'mb2050', 'mb2051', 'bs2091']
+                }
+            },
+            {
+                id: 'bsc-medbiochem',
+                name: 'Medical Biochemistry',
+                rules: {
+                    core: ['bs2200', 'bs2093', 'mb2050', 'bs2000', 'bs2091', 'bs2092'],
+                    unavailable: ['mb2020', 'mb2051', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-medgenetics',
+                name: 'Medical Genetics',
+                rules: {
+                    core: ['bs2200', 'bs2009', 'mb2051', 'bs2000', 'bs2026', 'bs2040'],
+                    unavailable: ['mb2050', 'mb2080']
+                }
+            },
+            {
+                id: 'bsc-medmicro',
+                name: 'Medical Microbiology',
+                rules: {
+                    core: ['bs2200', 'bs2030', 'mb2020', 'bs2000', 'bs2032'],
+                    unavailable: ['bs2015', 'bs2093', 'mb2050', 'mb2051', 'bs2066', 'bs2077', 'mb2080']
+                }
+            }
+        ];
+
+        // Application State
+        let currentCourseId = 'bsc-biol';
+        // State tracks selected modules by ID
+        let selectedModules = new Set();
+        // Constant max modules per semester
+        const MAX_PER_SEMESTER = 4;
+
+        // DOM Elements
+        const courseSelect = document.getElementById('course-select');
+        const containers = {
+            1: document.getElementById('semester-1-container'),
+            2: document.getElementById('semester-2-container')
+        };
+        const countSpans = {
+            1: document.getElementById('s1-count'),
+            2: document.getElementById('s2-count')
+        };
+        const totalCreditsSpan = document.getElementById('total-credits-count');
+        const alertContainer = document.getElementById('alert-container');
+
+        // Helper function to show alerts (replaces native alert())
+        function showAlert(message, type = 'error') {
+            const alertEl = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-50' : 'bg-emerald-50';
+            const borderColor = type === 'error' ? 'border-red-200' : 'border-emerald-200';
+            const textColor = type === 'error' ? 'text-red-800' : 'text-emerald-800';
+            const icon = type === 'error' 
+                ? `<svg class="w-5 h-5 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`
+                : `<svg class="w-5 h-5 mr-2 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`;
+
+            alertEl.className = `flex items-center p-3 mb-2 border rounded-lg shadow-md transition-all duration-300 transform translate-x-full opacity-0 ${bgColor} ${borderColor} ${textColor}`;
+            alertEl.innerHTML = `${icon} <span class="font-medium text-sm">${message}</span>`;
+            
+            alertContainer.appendChild(alertEl);
+
+            // Animate in
+            setTimeout(() => {
+                alertEl.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+
+            // Animate out and remove
+            setTimeout(() => {
+                alertEl.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => alertEl.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize the select dropdown
+        function initSelect() {
+            degreeCourses.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.name;
+                courseSelect.appendChild(option);
+            });
+
+            courseSelect.addEventListener('change', (e) => {
+                changeCourse(e.target.value);
+            });
+        }
+
+        // Determine the status of a module for a given course
+        function getModuleStatus(moduleId, courseId) {
+            const course = degreeCourses.find(c => c.id === courseId);
+            if (!course) return 'optional';
+
+            if (course.rules.core.includes(moduleId)) return 'core';
+            if (course.rules.unavailable.includes(moduleId)) return 'unavailable';
+            return 'optional';
+        }
+
+        // Render a single module card
+        function createModuleElement(module, status) {
+            const el = document.createElement('div');
+            el.className = `module-card border rounded-lg p-3 mb-3 relative group select-none status-${status}`;
+            el.dataset.id = module.id;
+            el.dataset.semester = module.semester;
+            el.dataset.status = status;
+
+            // Apply selected state if it's in the set
+            if (selectedModules.has(module.id)) {
+                el.classList.add('is-selected');
+            }
+
+            // Create pill text based on status
+            let statusText = 'Optional';
+            let statusColor = 'bg-gray-200 text-gray-700';
+            
+            if (status === 'core') {
+                statusText = 'Core';
+                statusColor = 'bg-blue-200 text-blue-800';
+            } else if (status === 'unavailable') {
+                statusText = 'Unavailable';
+                statusColor = 'bg-red-200 text-red-800';
+            }
+
+            el.innerHTML = `
+                <div class="flex justify-between items-start mb-1">
+                    <span class="text-xs font-bold font-mono tracking-wider">${module.code}</span>
+                    <span class="status-pill text-[10px] font-semibold px-2 py-0.5 rounded uppercase tracking-wide ${statusColor}" data-original-text="${statusText}" data-original-color="${statusColor}">${statusText}</span>
+                </div>
+                <h3 class="font-medium text-sm leading-tight mb-1">${module.title}</h3>
+                <p class="text-xs text-slate-500 mb-2 italic">Convener: ${module.convener}</p>
+                <div class="flex justify-between items-center mt-2 pt-2 border-t border-black/5">
+                    <span class="text-xs opacity-75">${module.credits} Credits</span>
+                    ${status === 'unavailable' ? 
+                        `<svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>` : 
+                        `<div class="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center opacity-70 transition-colors checkbox-indicator ${selectedModules.has(module.id) ? 'bg-current text-white' : ''}">
+                            <svg class="w-3 h-3 ${selectedModules.has(module.id) ? 'opacity-100' : 'opacity-0'} transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke: ${selectedModules.has(module.id) ? 'var(--tw-colors-emerald-900)' : 'currentColor'};"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                        </div>`
+                    }
+                </div>
+            `;
+
+            // Add click event
+            if (status !== 'unavailable') {
+                el.addEventListener('click', () => toggleModuleSelection(module, status, el));
+            }
+
+            return el;
+        }
+
+        // Update the counts and UI state
+        function updateUI() {
+            // Count modules per semester
+            const counts = {1: 0, 2: 0};
+            let totalCredits = 0;
+
+            selectedModules.forEach(moduleId => {
+                const module = allModules.find(m => m.id === moduleId);
+                if (module) {
+                    counts[module.semester]++;
+                    totalCredits += module.credits;
+                }
+            });
+
+            // Update text displays
+            [1, 2].forEach(sem => {
+                const span = countSpans[sem];
+                const count = counts[sem];
+                span.textContent = count;
+                
+                // Styling based on completeness
+                if (count === MAX_PER_SEMESTER) {
+                    span.parentElement.classList.replace('text-brand-900', 'text-emerald-700');
+                    span.parentElement.classList.add('font-bold');
+                } else {
+                    span.parentElement.classList.replace('text-emerald-700', 'text-brand-900');
+                    span.parentElement.classList.remove('font-bold');
+                }
+            });
+
+            totalCreditsSpan.textContent = totalCredits;
+
+            // Handle Clashes dynamically based on selected modules
+            document.querySelectorAll('.module-card').forEach(card => {
+                const moduleId = card.dataset.id;
+                const status = card.dataset.status;
+                
+                // We only apply dynamic clashes to optional modules
+                if (status === 'optional') {
+                    const module = allModules.find(m => m.id === moduleId);
+                    const pill = card.querySelector('.status-pill');
+                    
+                    // Find if any selected module clashes with this one
+                    let clashingWithId = null;
+                    if (module.clashesWith) {
+                        clashingWithId = module.clashesWith.find(id => selectedModules.has(id));
+                    }
+
+                    if (clashingWithId && !selectedModules.has(moduleId)) {
+                        // It clashes and isn't selected
+                        const clashingModule = allModules.find(m => m.id === clashingWithId);
+                        card.classList.add('is-clashing');
+                        
+                        // Update Pill
+                        pill.textContent = 'Clashes w/ ' + clashingModule.code;
+                        pill.className = `status-pill text-[10px] font-semibold px-2 py-0.5 rounded uppercase tracking-wide bg-orange-200 text-orange-800`;
+                    } else {
+                        // Restore to normal
+                        card.classList.remove('is-clashing');
+                        pill.textContent = pill.dataset.originalText;
+                        pill.className = `status-pill text-[10px] font-semibold px-2 py-0.5 rounded uppercase tracking-wide ${pill.dataset.originalColor}`;
+                    }
+                }
+            });
+        }
+
+        // Handle clicking a module card
+        function toggleModuleSelection(module, status, element) {
+            // Cannot deselect core modules
+            if (status === 'core' && selectedModules.has(module.id)) {
+                showAlert(`Cannot remove ${module.code}: It is a core requirement for this course.`);
+                // Slight shake effect
+                element.classList.add('translate-x-1');
+                setTimeout(() => element.classList.replace('translate-x-1', '-translate-x-1'), 50);
+                setTimeout(() => element.classList.replace('-translate-x-1', 'translate-x-0'), 100);
+                setTimeout(() => element.classList.remove('translate-x-0'), 150);
+                return;
+            }
+
+            // Prevent selecting dynamically clashing modules
+            if (element.classList.contains('is-clashing')) {
+                const moduleInfo = allModules.find(m => m.id === module.id);
+                const clashId = moduleInfo.clashesWith.find(id => selectedModules.has(id));
+                const clashCode = allModules.find(m => m.id === clashId).code;
+                showAlert(`Cannot select ${module.code}: Timetabling clash with selected module ${clashCode}.`);
+                
+                // Slight shake effect
+                element.classList.add('translate-x-1');
+                setTimeout(() => element.classList.replace('translate-x-1', '-translate-x-1'), 50);
+                setTimeout(() => element.classList.replace('-translate-x-1', 'translate-x-0'), 100);
+                setTimeout(() => element.classList.remove('translate-x-0'), 150);
+                return;
+            }
+
+            const isCurrentlySelected = selectedModules.has(module.id);
+            
+            // If trying to select, check limits
+            if (!isCurrentlySelected) {
+                // Count current modules in this semester
+                let currentSemCount = 0;
+                selectedModules.forEach(id => {
+                    const m = allModules.find(x => x.id === id);
+                    if (m && m.semester === module.semester) {
+                        currentSemCount++;
+                    }
+                });
+
+                if (currentSemCount >= MAX_PER_SEMESTER) {
+                    showAlert(`Semester ${module.semester} is full. Remove an optional module first.`);
+                    return;
+                }
+
+                // Add selection
+                selectedModules.add(module.id);
+                element.classList.add('is-selected');
+                
+                // Update checkbox UI inside the card
+                const indicator = element.querySelector('.checkbox-indicator');
+                const svg = indicator.querySelector('svg');
+                indicator.classList.add('bg-current', 'text-white');
+                svg.classList.replace('opacity-0', 'opacity-100');
+                svg.style.stroke = 'currentColor'; // Gets the text color of the selected state
+
+            } else {
+                // Remove selection (already checked it's not core)
+                selectedModules.delete(module.id);
+                element.classList.remove('is-selected');
+                
+                // Update checkbox UI inside the card
+                const indicator = element.querySelector('.checkbox-indicator');
+                const svg = indicator.querySelector('svg');
+                indicator.classList.remove('bg-current', 'text-white');
+                svg.classList.replace('opacity-100', 'opacity-0');
+            }
+
+            updateUI();
+        }
+
+        // Change the active course and re-render the board
+        function changeCourse(courseId) {
+            currentCourseId = courseId;
+            const courseInfo = degreeCourses.find(c => c.id === courseId);
+            
+            // Clear current selections
+            selectedModules.clear();
+
+            // Auto-select core modules for the new course
+            courseInfo.rules.core.forEach(moduleId => {
+                selectedModules.add(moduleId);
+            });
+
+            renderBoard();
+            showAlert(`Loaded path for ${courseInfo.name}`, 'success');
+        }
+
+        // Render the entire grid based on current course
+        function renderBoard() {
+            // Clear containers
+            [1, 2].forEach(sem => {
+                containers[sem].innerHTML = '';
+            });
+
+            // Re-populate containers
+            allModules.forEach(module => {
+                const status = getModuleStatus(module.id, currentCourseId);
+                const el = createModuleElement(module, status);
+                
+                // Append to correct semester container
+                containers[module.semester].appendChild(el);
+            });
+
+            updateUI();
+        }
+
+        // Setup clear buttons
+        document.querySelectorAll('.clear-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const sem = parseInt(e.target.dataset.semester);
+                let removedAny = false;
+
+                // Create array from set to iterate and potentially delete
+                const currentSelections = Array.from(selectedModules);
+                
+                currentSelections.forEach(moduleId => {
+                    const module = allModules.find(m => m.id === moduleId);
+                    if (module && module.semester === sem) {
+                        const status = getModuleStatus(moduleId, currentCourseId);
+                        // Only remove if optional
+                        if (status === 'optional') {
+                            selectedModules.delete(moduleId);
+                            removedAny = true;
+                            
+                            // Update the specific DOM element directly to avoid full re-render
+                            const el = document.querySelector(`.module-card[data-id="${moduleId}"]`);
+                            if(el) {
+                                el.classList.remove('is-selected');
+                                const indicator = el.querySelector('.checkbox-indicator');
+                                const svg = indicator.querySelector('svg');
+                                indicator.classList.remove('bg-current', 'text-white');
+                                svg.classList.replace('opacity-100', 'opacity-0');
+                            }
+                        }
+                    }
+                });
+
+                if (removedAny) {
+                    updateUI();
+                    showAlert(`Cleared optional modules from Semester ${sem}`, 'success');
+                } else {
+                    showAlert('No optional modules to clear in this semester');
+                }
+            });
+        });
+
+        // Initialization
+        initSelect();
+        // Set initial value explicitly and trigger initial load
+        courseSelect.value = 'bsc-biol';
+        changeCourse('bsc-biol');
+
+    </script>
+</body>
+</html>
