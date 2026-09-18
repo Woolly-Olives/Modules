@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Module Selector - Flow Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' }
+                    },
+                    backgroundImage: {
+                        'dot-pattern': 'radial-gradient(#cbd5e1 1.5px, #f8fafc 1.5px)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1.5px, #f8fafc 1.5px);
+            background-size: 24px 24px;
+            overflow: hidden; 
+        }
+        
+        .flow-container {
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+            padding-bottom: 24rem; 
+        }
+        .flow-container::-webkit-scrollbar { height: 8px; width: 8px; }
+        .flow-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.5); border-radius: 4px; }
+        .flow-container::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+
+        .module-card {
+            transition: all 0.2s ease-in-out;
+            position: relative;
+        }
+        
+        .module-card::before, .module-card::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 6px;
+            height: 6px;
+            background: #cbd5e1;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .module-card::before { left: -3px; }
+        .module-card::after { right: -3px; }
+        .module-card:hover::before, .module-card:hover::after { opacity: 1; }
+
+        .module-card:hover:not(.status-unavailable):not(.is-clashing) {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .status-core {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            border-width: 2px;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+        }
+        
+        .status-optional {
+            background-color: #ffffff;
+            border-color: #cbd5e1;
+            border-width: 1px;
+        }
+        
+        .status-unavailable {
+            background-color: #fef2f2;
+            border-color: #fca5a5;
+            border-width: 1px;
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(80%);
+        }
+
+        .is-clashing {
+            background-color: #fff7ed !important;
+            border-color: #fdba74 !important;
+            border-width: 2px !important;
+            opacity: 0.9;
+            cursor: not-allowed;
+        }
+        
+        /* Fixed Selected State Colors */
+        .is-selected {
+            background-color: #10b981 !important; 
+            border-color: #059669 !important;
+            border-width: 2px;
+            box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.4) !important;
+        }
+        .is-selected h3, .is-selected span, .is-selected p, .is-selected div {
+            color: #ffffff !important;
+        }
+        .is-selected .status-pill {
+            background-color: rgba(255, 255, 255, 0.25) !important;
+            color: #ffffff !important;
+        }
+        .is-selected button {
+            color: #ffffff !important;
+        }
+        .is-selected button:hover {
+            color: #f8fafc !important;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        .shake-animation {
+            animation: shake 0.3s ease-in-out;
+        }
+        
+        /* Category Left Borders */
+        .border-cat-pink { border-left-color: #f472b6 !important; border-left-width: 4px; }
+        .border-cat-yellow { border-left-color: #fde047 !important; border-left-width: 4px; }
+        .border-cat-green { border-left-color: #4ade80 !important; border-left-width: 4px; }
+        .border-cat-blue { border-left-color: #60a5fa !important; border-left-width: 4px; }
+        .border-cat-cyan { border-left-color: #22d3ee !important; border-left-width: 4px; }
+        .border-cat-purple { border-left-color: #c084fc !important; border-left-width: 4px; }
+
+        /* Course Selector Button Styles */
+        .course-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border-radius: 9999px; /* Fully rounded */
+            font-size: 0.75rem; /* Smaller text */
+            line-height: 1.1;
+            font-weight: 600;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background-color: white;
+            color: #334155;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .course-btn:hover {
+            background-color: #f8fafc;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        /* Stream Outline Colors */
+        .outline-rainbow { border-color: transparent; background-image: linear-gradient(white, white), linear-gradient(to right, #fca5a5, #fdba74, #fde047, #86efac, #93c5fd, #c4b5fd, #f9a8d4); background-origin: border-box; background-clip: padding-box, border-box; }
+        .outline-pink { border-color: #f472b6; }     /* Genetics (BS2009) */
+        .outline-cyan { border-color: #22d3ee; }     /* Biochemistry (BS2093) */
+        .outline-purple { border-color: #c084fc; }   /* Physiology (BS2013) */
+        .outline-yellow { border-color: #fde047; }   /* Microbiology (BS2030) */
+        .outline-green { border-color: #4ade80; }    /* Zoology (BS2059) */
+        .outline-blue { border-color: #60a5fa; }     /* Neuroscience (BS2077) */
+
+        .course-btn.active {
+            color: white; /* Default active text color */
+        }
+        
+        /* Specific Active Fill Colors */
+        .course-btn.outline-rainbow.active {
+            background-image: linear-gradient(to right, #fca5a5, #fdba74, #fde047, #86efac, #93c5fd, #c4b5fd, #f9a8d4);
+            background-clip: border-box;
+            color: #334155;
+            border-color: transparent;
+        }
+        .course-btn.outline-pink.active { background-color: #f472b6; }
+        .course-btn.outline-cyan.active { background-color: #22d3ee; color: #0f172a; } /* Dark text for contrast */
+        .course-btn.outline-purple.active { background-color: #c084fc; }
+        .course-btn.outline-yellow.active { background-color: #fde047; color: #0f172a; } /* Dark text for contrast */
+        .course-btn.outline-green.active { background-color: #4ade80; color: #0f172a; } /* Dark text for contrast */
+        .course-btn.outline-blue.active { background-color: #60a5fa; }
+
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col relative">
+
+    <header class="bg-white/80 backdrop-blur-sm border-b border-slate-200 z-30 shadow-sm px-6 py-4 flex justify-between items-center fixed top-0 w-full">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800" id="headerTitle">Course Module Flow</h1>
+            <p class="text-sm text-slate-500" id="headerLead">Map your degree pathway across semesters.</p>
+        </div>
+        <div class="flex items-center space-x-4 text-sm font-medium">
+            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-[#10b981] mr-2"></div> Selected</div>
+            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-blue-100 border-2 border-blue-500 mr-2"></div> Core</div>
+            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-white border border-slate-300 mr-2"></div> Optional</div>
+            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-red-50 border border-red-300 mr-2"></div> Unavailable</div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-x-auto overflow-y-auto flow-container relative mt-[72px]" id="flowContainer">
+        <!-- Connecting Lines Container -->
+        <div id="lines-container" class="absolute inset-0 pointer-events-none z-0"></div>
+
+        <!-- Grid Container: my-auto centers vertically, min-h-full ensures it doesn't clip when taller than screen -->
+        <div class="min-w-max p-8 flex space-x-12 items-start my-auto min-h-full pb-48">
+            
+            <div class="flex flex-col space-y-4 w-[240px] shrink-0 relative z-10" id="col-y1s1">
+                <div class="text-center mb-2 bg-white/90 backdrop-blur rounded-lg p-2 border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <h2 class="font-bold text-slate-800 text-lg">Year 1</h2>
+                    <p class="text-sm text-slate-500">Semester 1</p>
+                </div>
+                <div id="grid-y1s1" class="flex flex-col space-y-2"></div>
+            </div>
+
+            <div class="flex flex-col space-y-4 w-[240px] shrink-0 relative z-10" id="col-y1s2">
+                <div class="text-center mb-2 bg-white/90 backdrop-blur rounded-lg p-2 border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <h2 class="font-bold text-slate-800 text-lg">Year 1</h2>
+                    <p class="text-sm text-slate-500">Semester 2</p>
+                </div>
+                <div id="grid-y1s2" class="flex flex-col space-y-2"></div>
+            </div>
+
+            <div class="flex flex-col space-y-4 w-[240px] shrink-0 relative z-10" id="col-y2s1">
+                <div class="text-center mb-2 bg-white/90 backdrop-blur rounded-lg p-2 border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <h2 class="font-bold text-slate-800 text-lg text-blue-600">Year 2</h2>
+                    <p class="text-sm text-slate-500">Semester 1</p>
+                    <div class="text-xs font-semibold bg-slate-100 text-slate-600 rounded-full py-1 px-2 mt-2" id="tracker-y2s1">Selected: 0/4</div>
+                </div>
+                <div id="grid-y2s1" class="flex flex-col space-y-2"></div>
+            </div>
+
+            <div class="flex flex-col space-y-4 w-[240px] shrink-0 relative z-10" id="col-y2s2">
+                <div class="text-center mb-2 bg-white/90 backdrop-blur rounded-lg p-2 border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <h2 class="font-bold text-slate-800 text-lg text-blue-600">Year 2</h2>
+                    <p class="text-sm text-slate-500">Semester 2</p>
+                    <div class="text-xs font-semibold bg-slate-100 text-slate-600 rounded-full py-1 px-2 mt-2" id="tracker-y2s2">Selected: 0/4</div>
+                </div>
+                <div id="grid-y2s2" class="flex flex-col space-y-2"></div>
+            </div>
+            
+            <div class="flex flex-col space-y-4 w-[240px] shrink-0 relative z-10" id="col-y3s1">
+                <div class="text-center mb-2 bg-white/90 backdrop-blur rounded-lg p-2 border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <h2 class="font-bold text-slate-800 text-lg text-purple-600">Year 3</h2>
+                    <p class="text-sm text-slate-500">Semester 1</p>
+                    <div class="text-xs font-semibold bg-slate-100 text-slate-600 rounded-full py-1 px-2 mt-2" id="tracker-y3s1">Selected: 0</div>
+                </div>
+                <div id="grid-y3s1" class="flex flex-col space-y-2"></div>
+            </div>
+
+            <div class="flex flex-col space-y-4 w-[240px] shrink-0 relative z-10" id="col-y3s2">
+                <div class="text-center mb-2 bg-white/90 backdrop-blur rounded-lg p-2 border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <h2 class="font-bold text-slate-800 text-lg text-purple-600">Year 3</h2>
+                    <p class="text-sm text-slate-500">Semester 2</p>
+                    <div class="text-xs font-semibold bg-slate-100 text-slate-600 rounded-full py-1 px-2 mt-2" id="tracker-y3s2">Selected: 0</div>
+                </div>
+                <div id="grid-y3s2" class="flex flex-col space-y-2"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Floating Menu (Bottom Left) -->
+    <div class="fixed bottom-6 left-6 z-50">
+        <div class="grid grid-cols-6 gap-2 w-max">
+            <!-- Row 1: Non-Medical -->
+            <button class="course-btn outline-rainbow col-start-1" data-course="Biological Sciences">Biological Sciences</button>
+            <button class="course-btn outline-green col-start-2" data-course="Zoology">Zoology</button>
+            <button class="course-btn outline-purple col-start-3" data-course="Physiology with Pharmacology">Physiology w/ Pharm.</button>
+            <button class="course-btn outline-cyan col-start-4" data-course="Biochemistry">Biochemistry</button>
+            <button class="course-btn outline-pink col-start-5" data-course="Genetics">Genetics</button>
+            <button class="course-btn outline-yellow col-start-6" data-course="Microbiology">Microbiology</button>
+            
+            <!-- Row 2: Medical & Neuro -->
+            <button class="course-btn outline-blue col-start-2" data-course="Neuroscience">Neuroscience</button>
+            <button class="course-btn outline-purple col-start-3" data-course="Medical Physiology">Medical Physiology</button>
+            <button class="course-btn outline-cyan col-start-4" data-course="Medical Biochemistry">Medical Biochem.</button>
+            <button class="course-btn outline-pink col-start-5" data-course="Medical Genetics">Medical Genetics</button>
+            <button class="course-btn outline-yellow col-start-6" data-course="Medical Microbiology">Medical Microbio.</button>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full transform scale-95 transition-transform duration-300" id="infoModalContent">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-xl font-bold text-slate-800 pr-6" id="modalTitle">Module Title</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-2 hover:bg-slate-200 transition-colors shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-center space-x-2">
+                    <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-sm font-bold" id="modalCode">CODE</span>
+                    <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-sm font-semibold" id="modalCredits">Credits</span>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">Module Conveners</h4>
+                    <p class="text-slate-700 font-medium text-sm" id="modalConveners"></p>
+                </div>
+                <div id="modalClashInfo" class="hidden bg-orange-50 text-orange-800 p-3 rounded-lg text-sm border border-orange-200">
+                    <span class="font-bold flex items-center"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Clashes with:</span>
+                    <span id="modalClashText" class="block mt-1 font-medium"></span>
+                </div>
+                <div id="modalRuleInfo" class="hidden bg-blue-50 text-blue-800 p-3 rounded-lg text-sm border border-blue-200">
+                    <span class="font-bold">Requirement Note:</span>
+                    <span id="modalRuleText" class="block mt-1"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const degreeCourses = [
+            "Biological Sciences", "Zoology", "Physiology with Pharmacology", "Biochemistry", 
+            "Genetics", "Microbiology", "Neuroscience", "Medical Physiology", 
+            "Medical Biochemistry", "Medical Genetics", "Medical Microbiology"
+        ];
+
+        // --- MODULE DATA ---
+        
+        // Year 1 Modules (Core)
+        const year1Modules = [
+            { code: "BS 1030", title: "The Molecules of Life", credits: 30, semester: "Y1S1", year: 1, conveners: "TBA" },
+            { code: "BS 1040", title: "The Cell", credits: 30, semester: "Y1S1", year: 1, conveners: "TBA" },
+            { code: "BS 1050", title: "From Individuals to Populations", credits: 15, semester: "Y1S2", year: 1, conveners: "TBA" },
+            { code: "BS 1060", title: "Multicellular Organisation", credits: 30, semester: "Y1S2", year: 1, conveners: "TBA" },
+            { code: "BS 1070", title: "Genetics", credits: 15, semester: "Y1S2", year: 1, conveners: "TBA" },
+            { code: "MB 1080", title: "Medical Biosciences", credits: 15, semester: "Y1S2", year: 1, conveners: "TBA" } // Alternative to BS 1070 for Med
+        ];
+
+        // Year 2 Modules (From Screenshot)
+        const year2Modules = [
+            // Semester 1
+            { code: "BS 2200", title: "Research Skills 1", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Nicola Suter-Giorgini, Dr Alix Blockley", colorCat: "" },
+            { code: "BS 2009", title: "Genomes", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Celia May, Professor David Twell", colorCat: "border-cat-pink" },
+            { code: "BS 2013", title: "Physiology and Pharmacology", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Saba Imanzadeh, Professor Martyn Mahaut-Smith", colorCat: "border-cat-purple" },
+            { code: "BS 2015", title: "Physiology of Excitable Cells", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Paul Glynn, Dr Volko Straub, Dr Emily Allen", colorCat: "border-cat-purple" },
+            { code: "BS 2030", title: "Principles of Microbiology", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Hasan Yesilkaya", colorCat: "border-cat-yellow" },
+            { code: "BS 2059", title: "Global Change Biology and Conservation", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Moya Burns, Dr Rob Hammond", colorCat: "border-cat-green" },
+            { code: "BS 2093", title: "Protein Structure and Function", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Mark Leyland, Professor Geerten Vuister", colorCat: "border-cat-cyan" },
+            { code: "BS 2094", title: "Introduction to Python Programming", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Cheryl Hurkett, Dr TJ Ragan", colorCat: "" },
+            { code: "MB 2020", title: "Medical Microbiology", credits: 15, semester: "Y2S1", year: 2, conveners: "Professor Galina Mukamolova, Dr Helen O'Hare", colorCat: "border-cat-yellow" },
+            { code: "MB 2050", title: "Biochemical Approaches to Therapeutic Dev", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Sue Shackleton", colorCat: "border-cat-cyan" },
+            { code: "MB 2051", title: "Current Issues in Medical Genetics", credits: 15, semester: "Y2S1", year: 2, conveners: "Dr Chris Talbot, Professor Mark Jobling", colorCat: "border-cat-pink" },
+
+            // Semester 2
+            { code: "BS 2000", title: "Research Skills 2", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Nicola Suter-Giorgini, Dr Alix Blockley", colorCat: "" },
+            { code: "BS 2004", title: "Contemporary Techniques in Data Analysis", credits: 15, semester: "Y2S2", year: 2, conveners: "Professor Eamonn Mallon, Dr Swidbert Ott", colorCat: "" },
+            { code: "BS 2014", title: "Exercise Physiology and Pharmacology", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Catherine Vial", colorCat: "border-cat-purple" },
+            { code: "BS 2026", title: "Genes, Development and Inheritance", credits: 15, semester: "Y2S2", year: 2, conveners: "Professor Mark Jobling, Dr Ko-Fan Chen", colorCat: "border-cat-pink" },
+            { code: "BS 2032", title: "Immunology and Eukaryotic Microbiology", credits: 15, semester: "Y2S2", year: 2, conveners: "Professor Andrea Cooper, Dr Hasan Yesilkaya", colorCat: "border-cat-yellow" },
+            { code: "BS 2033", title: "Immunology and Eukaryotic Microbiology + Trip", credits: 15, semester: "Y2S2", year: 2, conveners: "Professor Andrea Cooper, Dr Hasan Yesilkaya", colorCat: "border-cat-yellow" },
+            { code: "BS 2040", title: "Bioinformatics", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Richard Badge, Professor David Twell", colorCat: "border-cat-pink" },
+            { code: "BS 2066", title: "Behavioural Neurobiology", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Tom Matheson, Dr Swidbert Ott", colorCat: "border-cat-blue" },
+            { code: "BS 2077", title: "Neurobiology and Animal Behaviour", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Tom Matheson, Dr Swidbert Ott", colorCat: "border-cat-green" },
+            { code: "BS 2078", title: "A Field Guide to Evolution", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Rob Hammond, Dr Stuart Desjardins", colorCat: "" },
+            { code: "BS 2091", title: "From Genes to Proteins", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Olga Makarova, Professor Thomas Schalch", colorCat: "border-cat-cyan" },
+            { code: "BS 2092", title: "Molecular Cell Biology", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Sally Prigent, Dr Sue Shackleton", colorCat: "border-cat-cyan" },
+            { code: "MB 2080", title: "Pathophysiology of Disease", credits: 15, semester: "Y2S2", year: 2, conveners: "Dr Jonathan Willets, Dr Nina Storey", colorCat: "border-cat-purple" }
+        ];
+
+        // Year 3 Modules (Placeholder data for now based on text file, will need full list eventually)
+        const year3Modules = [
+            { code: "PR 3030", title: "Research Project", credits: 30, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "PR 3015", title: "Research Project", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+            
+            { code: "BS 3015", title: "Molecular and Cellular Neuroscience", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3016", title: "Neuroscience in Health and Disease", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+            { code: "BS 3033", title: "Cellular Physiology of the Cardiovascular System", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+            
+            { code: "BS 3054", title: "Molecular and Cellular Pharmacology", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3055", title: "Systems Pharmacology", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3056", title: "Cardiovascular Pharmacology", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+            { code: "MB 3057", title: "Topics in Medical Physiology", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" }, // Added for PhysPharm
+
+            { code: "BS 3010", title: "Gene Expression", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3070", title: "Protein Complexes", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3003", title: "Cancer Cell Biology", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+
+            { code: "BS 3038", title: "Behavioural Ecology", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3064", title: "Evolutionary Biology", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3073", title: "Conservation Biology", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+
+            { code: "BS 3000", title: "Evolutionary Genetics", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3031", title: "Human Genetics", credits: 15, semester: "Y3S1", year: 3, conveners: "TBA" },
+            { code: "BS 3011", title: "Applied Genetics", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" },
+            
+            { code: "MB 3050", title: "Medical Genetics in Practice", credits: 15, semester: "Y3S2", year: 3, conveners: "TBA" }
+        ];
+
+        const allModules = [...year1Modules, ...year2Modules, ...year3Modules];
+
+        // --- COURSE RULES ---
+        const courseRules = {
+            "Biological Sciences": {
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"], // The core choice for this stream
+                core: ["BS 2200", "BS 2000"], 
+                unavailable: ["MB 2050", "MB 2051", "MB 2080"],
+                y3core: [],
+                y3rules: [],
+                title: "Biological Sciences BSc",
+                lead: "Dr Bio"
+            },
+            "Zoology": { 
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"],
+                core: ["BS 2200", "BS 2059", "BS 2000", "BS 2026", "BS 2077"], 
+                unavailable: ["MB 2050", "MB 2051", "MB 2080"],
+                y3core: ["BS 3073"],
+                y3rules: [{ type: "OR", modules: ["BS 3038", "BS 3064"], note: "Requires BS3038 and/or BS3064" }],
+                title: "Biological Sciences (Zoology) BSc",
+                lead: "Dr Zoo"
+            },
+            "Physiology with Pharmacology": { 
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"],
+                core: ["BS 2200", "BS 2013", "BS 2015", "BS 2000", "BS 2014"], 
+                unavailable: ["BS 2030", "MB 2050", "MB 2051", "MB 2080"],
+                y3core: ["BS 3054", "BS 3056"],
+                y3rules: [
+                    { type: "CONDITIONAL", required: "BS 3055", ifNot: ["BS 3033", "MB 3057"], note: "BS3055 required IF BS3033 or MB3057 not chosen." },
+                    { type: "GROUP", min: 2, max: 3, modules: ["BS 3055", "BS 3033", "MB 3057"], note: "2 or 3 required from: BS3055, BS3033, MB3057" }
+                ],
+                title: "Biological Sciences (Physiology with Pharmacology) BSc",
+                lead: "Dr PhysPharm"
+            },
+            "Biochemistry": { 
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"],
+                core: ["BS 2200", "BS 2093", "BS 2000", "BS 2091", "BS 2092"], 
+                unavailable: ["MB 2020", "MB 2050", "MB 2051"],
+                y3core: ["BS 3010", "BS 3070", "BS 3003"],
+                y3rules: [],
+                title: "Biological Sciences (Biochemistry) BSc",
+                lead: "Dr Biochem"
+            },
+            "Genetics": { 
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"],
+                core: ["BS 2200", "BS 2009", "BS 2000", "BS 2026", "BS 2040"], 
+                unavailable: ["MB 2050", "MB 2051", "MB 2080"],
+                y3core: ["BS 3000", "BS 3031"],
+                y3rules: [{ type: "OR", modules: ["BS 3011", "BS 3073"], note: "Requires BS3011 and/or BS3073" }],
+                title: "Biological Sciences (Genetics) BSc",
+                lead: "Dr Gen"
+            },
+            "Microbiology": { 
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"],
+                core: ["BS 2200", "BS 2030", "MB 2020", "BS 2000", "BS 2032"], 
+                unavailable: ["BS 2015", "BS 2093", "MB 2050", "MB 2051", "BS 2066", "BS 2077", "MB 2080"],
+                y3core: [],
+                y3rules: [],
+                title: "Biological Sciences (Microbiology) BSc",
+                lead: "Dr Micro"
+            },
+            "Neuroscience": { 
+                y1s2: ["BS 1050", "BS 1060", "BS 1070"],
+                core: ["BS 2200", "BS 2013", "BS 2015", "BS 2000", "BS 2066"], 
+                unavailable: ["BS 2030", "BS 2093", "MB 2050", "MB 2051", "BS 2032", "BS 2033"],
+                y3core: ["BS 3015", "BS 3016", "BS 3033"],
+                y3rules: [],
+                title: "Biological Sciences (Neuroscience) BSc",
+                lead: "Dr Neuro"
+            },
+            "Medical Physiology": { 
+                y1s2: ["BS 1050", "BS 1060", "MB 1080"], // Med modules
+                core: ["BS 2200", "BS 2013", "BS 2015", "BS 2000", "BS 2014", "MB 2080"], 
+                unavailable: ["BS 2030", "MB 2050", "MB 2051", "BS 2091", "BS 2066"],
+                y3core: [],
+                y3rules: [],
+                title: "Medical Physiology BSc",
+                lead: "Dr MedPhys"
+            },
+            "Medical Biochemistry": { 
+                y1s2: ["BS 1050", "BS 1060", "MB 1080"],
+                core: ["BS 2200", "BS 2093", "MB 2050", "BS 2000", "BS 2091", "BS 2092"], 
+                unavailable: ["MB 2020", "MB 2051", "MB 2080"],
+                y3core: [],
+                y3rules: [],
+                title: "Medical Biochemistry BSc",
+                lead: "Dr MedBiochem"
+            },
+            "Medical Genetics": { 
+                y1s2: ["BS 1050", "BS 1060", "MB 1080"],
+                core: ["BS 2200", "BS 2009", "MB 2051", "BS 2000", "BS 2026", "BS 2040"], 
+                unavailable: ["MB 2050", "MB 2080"],
+                y3core: ["BS 3000", "BS 3031", "BS 3011", "MB 3050"],
+                y3rules: [],
+                title: "Medical Genetics BSc",
+                lead: "Dr MedGen"
+            },
+            "Medical Microbiology": { 
+                y1s2: ["BS 1050", "BS 1060", "MB 1080"],
+                core: ["BS 2200", "BS 2030", "MB 2020", "BS 2000", "BS 2032"], 
+                unavailable: ["BS 2015", "BS 2093", "MB 2050", "MB 2051", "BS 2066", "BS 2077", "MB 2080"],
+                y3core: [],
+                y3rules: [],
+                title: "Medical Microbiology BSc",
+                lead: "Dr MedMicro"
+            }
+        };
+
+        // Strict Mutual Exclusivity Rules (Cannot be taken together)
+        const mutualClashes = [
+            { a: "BS 2015", b: "BS 2030" },
+            { a: "BS 2093", b: "MB 2020" },
+            { a: "BS 2032", b: "BS 2033" }, // Same module with/without trip
+            { a: "BS 2066", b: "BS 2077" }, // Similar neuro modules
+            { a: "BS 2032", b: "BS 2066" },
+            { a: "BS 2032", b: "BS 2077" },
+            { a: "BS 2033", b: "BS 2066" },
+            { a: "BS 2033", b: "BS 2077" }
+        ];
+
+        let currentCourse = "Biological Sciences";
+        let selectedModules = [];
+
+        function initApp() {
+            // Bind Menu Buttons
+            const courseBtns = document.querySelectorAll('.course-btn');
+            courseBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (currentCourse === btn.dataset.course) {
+                        currentCourse = "Biological Sciences"; // Toggle back to default
+                    } else {
+                        currentCourse = btn.dataset.course;
+                    }
+                    updateHeader();
+                    updateActiveButton();
+                    resetSelectionsForNewCourse();
+                    renderApp();
+                });
+            });
+
+            updateHeader();
+            updateActiveButton();
+            resetSelectionsForNewCourse(); // Initializes Y1 core
+            renderApp();
+            
+            window.addEventListener('resize', drawLines);
+        }
+
+        function updateHeader() {
+            const rules = courseRules[currentCourse];
+            document.getElementById('headerTitle').innerText = rules.title;
+            document.getElementById('headerLead').innerText = `Programme Lead: ${rules.lead}`;
+        }
+
+        function updateActiveButton() {
+            const courseBtns = document.querySelectorAll('.course-btn');
+            courseBtns.forEach(btn => {
+                if (btn.dataset.course === currentCourse) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function resetSelectionsForNewCourse() {
+            selectedModules = [];
+            const rules = courseRules[currentCourse];
+            
+            // Add Y1 Core (Everyone gets S1 core)
+            selectedModules.push("BS 1030", "BS 1040");
+            
+            // Add Y1S2 Core based on degree (BS vs MB)
+            rules.y1s2.forEach(code => selectedModules.push(code));
+            
+            // Add Y2 Core
+            rules.core.forEach(code => selectedModules.push(code));
+            
+            // Add Y3 Core
+            selectedModules.push("PR 3030", "PR 3015");
+            rules.y3core.forEach(code => selectedModules.push(code));
+        }
+
+        function renderApp() {
+            const rules = courseRules[currentCourse];
+            
+            const renderGrid = (modules, targetId, maxSelect) => {
+                const container = document.getElementById(targetId);
+                container.innerHTML = '';
+                
+                let selectedCount = 0;
+
+                modules.forEach(mod => {
+                    // Check if module is valid for this year/semester based on course rules
+                    if (mod.year === 1 && mod.semester === "Y1S2") {
+                        if (!rules.y1s2.includes(mod.code)) return; // Skip rendering if it's the wrong Y1S2 track
+                    }
+
+                    const isSelected = selectedModules.includes(mod.code);
+                    
+                    let isCore = false;
+                    if (mod.year === 1) isCore = true;
+                    if (mod.year === 2 && rules.core.includes(mod.code)) isCore = true;
+                    if (mod.year === 3 && rules.y3core.includes(mod.code)) isCore = true;
+                    if (mod.code.startsWith("PR ")) isCore = true;
+                    
+                    // Y3 Rule handling (for display/validation logic)
+                    let ruleNote = "";
+                    if (mod.year === 3 && rules.y3rules.length > 0) {
+                         rules.y3rules.forEach(r => {
+                             if (r.type === "CONDITIONAL" && r.required === mod.code) ruleNote = r.note;
+                             if (r.modules && r.modules.includes(mod.code)) ruleNote = r.note;
+                         });
+                    }
+
+                    if (isSelected && !isCore) {
+                        selectedCount++;
+                    }
+
+                    const isUnavailable = (rules.unavailable && rules.unavailable.includes(mod.code));
+                    
+                    let clashCode = null;
+                    if (!isCore && !isUnavailable) {
+                        mutualClashes.forEach(clash => {
+                            if (clash.a === mod.code && selectedModules.includes(clash.b)) clashCode = clash.b;
+                            if (clash.b === mod.code && selectedModules.includes(clash.a)) clashCode = clash.a;
+                        });
+                    }
+                    const isClashing = clashCode !== null;
+
+                    const statusClass = isCore ? 'status-core' : 
+                                        isUnavailable ? 'status-unavailable' : 
+                                        isClashing ? 'is-clashing' :
+                                        isSelected ? 'is-selected' : 'status-optional';
+
+                    const lockIcon = isCore ? `<svg class="w-3 h-3 text-blue-500 mr-1 inline" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>` : '';
+                    
+                    let statusPill = '';
+                    if (isCore) statusPill = `<span class="status-pill text-[9px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-sm">${lockIcon} Core</span>`;
+                    else if (isUnavailable) statusPill = `<span class="status-pill text-[9px] font-bold uppercase tracking-wider bg-red-100 text-red-700 px-1.5 py-0.5 rounded-sm">Unavailable</span>`;
+                    else if (isClashing) statusPill = `<span class="status-pill text-[9px] font-bold uppercase tracking-wider bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-sm" title="Clashes with ${clashCode}">Clash</span>`;
+                    else if (isSelected) statusPill = `<span class="status-pill text-[9px] font-bold uppercase tracking-wider bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm">Selected</span>`;
+                    else statusPill = `<span class="status-pill text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-sm">Optional</span>`;
+                    
+                    if (ruleNote && !isCore) statusPill += ` <span class="status-pill text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm">*</span>`;
+
+                    const card = document.createElement('div');
+                    
+                    // Add dynamic height based on credits (30 credit modules are double height)
+                    const sizeClass = mod.credits === 30 ? 'min-h-[144px]' : 'min-h-[72px]';
+                    
+                    card.className = `module-card bg-white rounded-lg p-2.5 shadow-sm border ${statusClass} ${isSelected ? 'is-selected' : ''} ${mod.colorCat || ''} ${sizeClass} flex flex-col`;
+                    card.dataset.code = mod.code;
+                    card.dataset.clash = clashCode || '';
+                    card.dataset.rule = ruleNote || '';
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-[10px] font-bold text-slate-500">${mod.code}</span>
+                            <div class="flex space-x-1">${statusPill}</div>
+                        </div>
+                        <h3 class="text-xs font-bold text-slate-800 leading-tight mb-2 pr-5 relative flex-1">
+                            ${mod.title}
+                            <button class="absolute -right-1 -top-1 p-1 text-slate-400 hover:text-blue-500 transition-colors" onclick="openModal(event, '${mod.code}')" title="View details">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </button>
+                        </h3>
+                    `;
+
+                    // Interaction Events
+                    if (isCore) {
+                        card.onclick = () => {
+                            card.classList.remove('shake-animation');
+                            void card.offsetWidth;
+                            card.classList.add('shake-animation');
+                        };
+                    } else if (!isUnavailable && !isClashing) {
+                        card.onclick = () => toggleModule(mod, maxSelect, isSelected);
+                    }
+
+                    container.appendChild(card);
+                });
+
+                // Calculate total selected including cores for tracker
+                const totalInSem = selectedModules.filter(code => modules.find(m => m.code === code)).length;
+                return totalInSem; 
+            };
+
+            // Render columns
+            renderGrid(allModules.filter(m => m.semester === 'Y1S1'), 'grid-y1s1', 99); // Y1 has no options
+            renderGrid(allModules.filter(m => m.semester === 'Y1S2'), 'grid-y1s2', 99);
+            
+            const totalY2S1 = renderGrid(allModules.filter(m => m.semester === 'Y2S1'), 'grid-y2s1', 4);
+            const totalY2S2 = renderGrid(allModules.filter(m => m.semester === 'Y2S2'), 'grid-y2s2', 4);
+            
+            const totalY3S1 = renderGrid(allModules.filter(m => m.semester === 'Y3S1'), 'grid-y3s1', 99); // Limits need careful mapping
+            const totalY3S2 = renderGrid(allModules.filter(m => m.semester === 'Y3S2'), 'grid-y3s2', 99);
+
+            // Update Trackers (Max 4 per semester in Y2)
+            document.getElementById('tracker-y2s1').innerText = `Selected: ${totalY2S1} / 4`;
+            document.getElementById('tracker-y2s1').className = `text-xs font-semibold rounded-full py-1 px-2 mt-2 ${totalY2S1 === 4 ? 'bg-green-100 text-green-700' : totalY2S1 > 4 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`;
+            
+            document.getElementById('tracker-y2s2').innerText = `Selected: ${totalY2S2} / 4`;
+            document.getElementById('tracker-y2s2').className = `text-xs font-semibold rounded-full py-1 px-2 mt-2 ${totalY2S2 === 4 ? 'bg-green-100 text-green-700' : totalY2S2 > 4 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`;
+
+            document.getElementById('tracker-y3s1').innerText = `Modules: ${totalY3S1}`;
+            document.getElementById('tracker-y3s2').innerText = `Modules: ${totalY3S2}`;
+
+            setTimeout(drawLines, 100);
+        }
+
+        function toggleModule(mod, maxSelect, currentlySelected) {
+            const rules = courseRules[currentCourse];
+            
+            if (currentlySelected) {
+                selectedModules = selectedModules.filter(m => m !== mod.code);
+            } else {
+                const currentSemModules = allModules.filter(m => m.semester === mod.semester && m.year === mod.year);
+                
+                // Count how many total modules are selected in this semester
+                const totalSelectedInSem = currentSemModules.filter(m => selectedModules.includes(m.code)).length;
+
+                // For Year 2, strict max of 4
+                if (mod.year === 2 && totalSelectedInSem >= 4) {
+                    const card = document.querySelector(`.module-card[data-code="${mod.code}"]`);
+                    if(card) {
+                        card.classList.remove('shake-animation');
+                        void card.offsetWidth;
+                        card.classList.add('shake-animation');
+                    }
+                    return;
+                }
+
+                // If not maxed out, add it
+                selectedModules.push(mod.code);
+            }
+            renderApp();
+        }
+
+        function openModal(event, code) {
+            event.stopPropagation();
+            const mod = allModules.find(m => m.code === code);
+            const card = document.querySelector(`.module-card[data-code="${code}"]`);
+            const clashCode = card ? card.dataset.clash : '';
+            const ruleNote = card ? card.dataset.rule : '';
+
+            document.getElementById('modalTitle').innerText = mod.title;
+            document.getElementById('modalCode').innerText = mod.code;
+            document.getElementById('modalCredits').innerText = `${mod.credits} Credits`;
+            document.getElementById('modalConveners').innerText = mod.conveners || 'TBA';
+            
+            const clashInfo = document.getElementById('modalClashInfo');
+            if (clashCode) {
+                const clashingMod = allModules.find(m => m.code === clashCode);
+                document.getElementById('modalClashText').innerText = `${clashCode} - ${clashingMod ? clashingMod.title : 'Unknown'}`;
+                clashInfo.classList.remove('hidden');
+            } else {
+                clashInfo.classList.add('hidden');
+            }
+
+            const ruleInfo = document.getElementById('modalRuleInfo');
+            if (ruleNote) {
+                document.getElementById('modalRuleText').innerText = ruleNote;
+                ruleInfo.classList.remove('hidden');
+            } else {
+                ruleInfo.classList.add('hidden');
+            }
+
+            const modal = document.getElementById('infoModal');
+            const modalContent = document.getElementById('infoModalContent');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('infoModal');
+            const modalContent = document.getElementById('infoModalContent');
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function drawLines() {
+            const container = document.getElementById('lines-container');
+            const flowContainer = document.getElementById('flowContainer');
+            container.innerHTML = '';
+
+            const cols = ['col-y1s1', 'col-y1s2', 'col-y2s1', 'col-y2s2', 'col-y3s1', 'col-y3s2'];
+            
+            for (let i = 0; i < cols.length - 1; i++) {
+                const colA = document.getElementById(cols[i]);
+                const colB = document.getElementById(cols[i+1]);
+                
+                if (!colA || !colB) continue;
+
+                const rectA = colA.getBoundingClientRect();
+                const rectB = colB.getBoundingClientRect();
+                const containerRect = flowContainer.getBoundingClientRect();
+
+                const startX = rectA.right - containerRect.left + flowContainer.scrollLeft + 15;
+                const endX = rectB.left - containerRect.left + flowContainer.scrollLeft - 15;
+                const y = (rectA.top - containerRect.top + flowContainer.scrollTop) + 50; 
+
+                const line = document.createElement('div');
+                line.className = 'absolute border-t-2 border-dashed border-slate-300';
+                line.style.left = `${startX}px`;
+                line.style.width = `${endX - startX}px`;
+                line.style.top = `${y}px`;
+                
+                container.appendChild(line);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
